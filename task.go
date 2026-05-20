@@ -8,6 +8,7 @@ type Task struct {
 	ID        int       `json:"id"`
 	Title     string    `json:"title"`
 	Done      bool      `json:"done"`
+	Priority  string    `json:"priority,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -19,4 +20,12 @@ func NewTask(id int, title string) Task {
 		Done:      false,
 		CreatedAt: time.Now(),
 	}
+}
+
+// priorityRank gives a sort weight per priority. Lower is
+// more important.
+var priorityRank = map[string]int{
+	"high":   0,
+	"normal": 1,
+	"low":    2,
 }

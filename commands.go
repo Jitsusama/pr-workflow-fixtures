@@ -2,24 +2,39 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 )
 
 // cmdAdd appends a new task to the store. The title is the
-// concatenation of all positional args.
+// concatenation of all positional args; an optional
+// --priority <level> sets the task's priority.
 func cmdAdd(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: tasks add <title>")
+		return fmt.Errorf("usage: tasks add <title> [--priority <level>]")
 	}
-	title := strings.Join(args, " ")
+
+	priority := ""
+	var titleParts []string
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--priority" && i+1 < len(args) {
+			priority = args[i+1]
+			i++
+			continue
+		}
+		titleParts = append(titleParts, args[i])
+	}
+	title := strings.Join(titleParts, " ")
 
 	tasks, err := Load()
 	if err != nil {
 		return err
 	}
 	id := nextID(tasks)
-	tasks = append(tasks, NewTask(id, title))
+	task := NewTask(id, title)
+	task.Priority = priority
+	tasks = append(tasks, task)
 	if err := Save(tasks); err != nil {
 		return err
 	}
@@ -27,8 +42,9 @@ func cmdAdd(args []string) error {
 	return nil
 }
 
-// cmdList prints every task with a done-marker.
-func cmdList() error {
+// cmdList prints every task with a done-marker. Pass
+// --sort priority to order high-to-low.
+func cmdList(args []string) error {
 	tasks, err := Load()
 	if err != nil {
 		return err
@@ -37,12 +53,26 @@ func cmdList() error {
 		fmt.Println("no tasks")
 		return nil
 	}
+
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--sort" && i+1 < len(args) && args[i+1] == "priority" {
+			sort.Slice(tasks, func(a, b int) bool {
+				return priorityRank[tasks[a].Priority] < priorityRank[tasks[b].Priority]
+			})
+			i++
+		}
+	}
+
 	for _, t := range tasks {
 		marker := " "
 		if t.Done {
 			marker = "x"
 		}
-		fmt.Printf("[%s] %d. %s\n", marker, t.ID, t.Title)
+		if t.Priority != "" {
+			fmt.Printf("[%s] %d. (%s) %s\n", marker, t.ID, t.Priority, t.Title)
+		} else {
+			fmt.Printf("[%s] %d. %s\n", marker, t.ID, t.Title)
+		}
 	}
 	return nil
 }
