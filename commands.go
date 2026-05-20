@@ -75,12 +75,30 @@ func cmdList(args []string) error {
 	fs.SetOutput(io.Discard)
 	sortBy := fs.String("sort", "", "sort order (priority)")
 	if err := fs.Parse(args); err != nil {
-		return fmt.Errorf("usage: tasks list [--sort priority]: %w", err)
+		return fmt.Errorf("usage: tasks list [--sort priority] [--tag <name>]: %w", err)
+	}
+
+	// Tag filter: same manual scan as cmdAdd uses.
+	tagFilter := ""
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--tag" && i+1 < len(args) {
+			tagFilter = args[i+1]
+			i++
+		}
 	}
 
 	tasks, err := Load()
 	if err != nil {
 		return err
+	}
+	if tagFilter != "" {
+		filtered := tasks[:0]
+		for _, t := range tasks {
+			if t.Tag == tagFilter {
+				filtered = append(filtered, t)
+			}
+		}
+		tasks = filtered
 	}
 	if len(tasks) == 0 {
 		fmt.Println("no tasks")
