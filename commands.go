@@ -1,31 +1,47 @@
 package main
 
 import (
+	"errors"
+	"flag"
 	"fmt"
+	"io"
 	"sort"
 	"strconv"
 	"strings"
 )
 
+// validPriorities lists the priority levels cmdAdd accepts.
+// Kept in sync with priorityRank in task.go.
+var validPriorities = []string{"high", "normal", "low"}
+
+func isValidPriority(p string) bool {
+	for _, v := range validPriorities {
+		if p == v {
+			return true
+		}
+	}
+	return false
+}
+
 // cmdAdd appends a new task to the store. The title is the
 // concatenation of all positional args; an optional
 // --priority <level> sets the task's priority.
 func cmdAdd(args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("usage: tasks add <title> [--priority <level>]")
+	fs := flag.NewFlagSet("add", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	priority := fs.String("priority", "", fmt.Sprintf("task priority (%s)", strings.Join(validPriorities, "|")))
+	usage := "usage: tasks add <title> [--priority <level>]"
+	if err := fs.Parse(args); err != nil {
+		return fmt.Errorf("%s: %w", usage, err)
 	}
 
-	priority := ""
-	var titleParts []string
-	for i := 0; i < len(args); i++ {
-		if args[i] == "--priority" && i+1 < len(args) {
-			priority = args[i+1]
-			i++
-			continue
-		}
-		titleParts = append(titleParts, args[i])
+	title := strings.Join(fs.Args(), " ")
+	if title == "" {
+		return errors.New(usage)
 	}
-	title := strings.Join(titleParts, " ")
+	if *priority != "" && !isValidPriority(*priority) {
+		return fmt.Errorf("invalid priority %q: must be one of %s", *priority, strings.Join(validPriorities, ", "))
+	}
 
 	tasks, err := Load()
 	if err != nil {
@@ -33,7 +49,7 @@ func cmdAdd(args []string) error {
 	}
 	id := nextID(tasks)
 	task := NewTask(id, title)
-	task.Priority = priority
+	task.Priority = *priority
 	tasks = append(tasks, task)
 	if err := Save(tasks); err != nil {
 		return err
@@ -45,6 +61,13 @@ func cmdAdd(args []string) error {
 // cmdList prints every task with a done-marker. Pass
 // --sort priority to order high-to-low.
 func cmdList(args []string) error {
+	fs := flag.NewFlagSet("list", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	sortBy := fs.String("sort", "", "sort order (priority)")
+	if err := fs.Parse(args); err != nil {
+		return fmt.Errorf("usage: tasks list [--sort priority]: %w", err)
+	}
+
 	tasks, err := Load()
 	if err != nil {
 		return err
@@ -54,13 +77,15 @@ func cmdList(args []string) error {
 		return nil
 	}
 
-	for i := 0; i < len(args); i++ {
-		if args[i] == "--sort" && i+1 < len(args) && args[i+1] == "priority" {
-			sort.Slice(tasks, func(a, b int) bool {
-				return priorityRank[tasks[a].Priority] < priorityRank[tasks[b].Priority]
-			})
-			i++
-		}
+	switch *sortBy {
+	case "":
+		// keep insertion order
+	case "priority":
+		sort.Slice(tasks, func(a, b int) bool {
+			return priorityRank[tasks[a].Priority] < priorityRank[tasks[b].Priority]
+		})
+	default:
+		return fmt.Errorf("unknown sort order %q: must be priority", *sortBy)
 	}
 
 	for _, t := range tasks {
