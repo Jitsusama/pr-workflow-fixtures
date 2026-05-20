@@ -8,6 +8,7 @@ type Task struct {
 	ID        int       `json:"id"`
 	Title     string    `json:"title"`
 	Done      bool      `json:"done"`
+	Tag       string    `json:"tag,omitempty"`
 	Priority  string    `json:"priority,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }

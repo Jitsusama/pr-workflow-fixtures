@@ -43,6 +43,15 @@ func cmdAdd(args []string) error {
 		return fmt.Errorf("invalid priority %q: must be one of %s", *priority, strings.Join(validPriorities, ", "))
 	}
 
+	// Tag parsing: scan args by hand for --tag <value>.
+	tag := ""
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--tag" && i+1 < len(args) {
+			tag = args[i+1]
+			i++
+		}
+	}
+
 	tasks, err := Load()
 	if err != nil {
 		return err
@@ -50,6 +59,7 @@ func cmdAdd(args []string) error {
 	id := nextID(tasks)
 	task := NewTask(id, title)
 	task.Priority = *priority
+	task.Tag = tag
 	tasks = append(tasks, task)
 	if err := Save(tasks); err != nil {
 		return err
