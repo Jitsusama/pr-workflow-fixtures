@@ -21,7 +21,7 @@ func run(args []string) error {
 	case "add":
 		return cmdAdd(rest)
 	case "list":
-		return cmdList()
+		return cmdList(rest)
 	case "done":
 		return cmdDone(rest)
 	case "rm":
